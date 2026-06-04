@@ -9,15 +9,20 @@ info:
     
     ## Features
     - **Immediate Response**: Returns registration ID instantly
-    - **Background Processing**: Handles transaction confirmation asynchronously  
+    - **Background Processing**: Handles transaction confirmation asynchronously
     - **Comprehensive Validation**: Amount, reference ID, and dust threshold validation
     - **Suggested Amount Calculation**: Smart amount calculation with reference ID embedding
     - **Multi-chain Support**: Bitcoin, Ethereum, BSC, and all THORChain supported assets
-    
-    
+
+    ## ⚠️ Important — Read Before Integrating
+
+    **Note:** Users must send the exact specified amount. If they do not, the transaction should be refunded — but it does have the potential to be lost forever.
+
+    **Note:** Users must send from a self-custody wallet. Sending from a smart contract wallet, centralized exchange address, decentralized exchange address, delegated address, or an EIP-7702 wallet will result in loss of funds.
+
   contact:
-    name: familiarcow
-    email: familiarcow@proton.me
+    name: contact
+    email: contact@thorchain.org
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
