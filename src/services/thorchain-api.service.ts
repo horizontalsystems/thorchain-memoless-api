@@ -14,13 +14,19 @@ export class ThorchainApiService {
     this.config = config;
     this.clientId = this.generateClientId(walletAddress);
     
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-client-id': this.clientId,
+    };
+
+    if (process.env.THORNODE_API_KEY) {
+      headers['X-API-KEY'] = process.env.THORNODE_API_KEY;
+    }
+
     this.api = axios.create({
       baseURL: config.apiUrl,
       timeout: 10000,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-client-id': this.clientId,
-      },
+      headers,
     });
 
     console.log(`🔑 [ThorchainApiService] Client ID generated: ${this.clientId}`);
@@ -46,8 +52,10 @@ export class ThorchainApiService {
   updateNetwork(config: NetworkConfig): void {
     this.config = config;
     this.api.defaults.baseURL = config.apiUrl;
-    // Keep the same client ID when switching networks
     this.api.defaults.headers['x-client-id'] = this.clientId;
+    if (process.env.THORNODE_API_KEY) {
+      this.api.defaults.headers['X-API-KEY'] = process.env.THORNODE_API_KEY;
+    }
   }
 
   getClientId(): string {

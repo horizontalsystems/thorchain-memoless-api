@@ -116,13 +116,17 @@ export class TransactionService {
 
     console.log(`🌐 [TransactionService] Connecting to RPC endpoint: ${this.config.rpcUrl}`);
     const registry = new Registry();
-    
+
     // Register THORChain MsgDeposit message type
     registerMsgDeposit(registry);
     console.log(`✅ [TransactionService] Registered MsgDeposit message type`);
-    
+
+    const rpcEndpoint = process.env.THORCHAIN_RPC_API_KEY
+      ? { url: this.config.rpcUrl, headers: { 'X-API-KEY': process.env.THORCHAIN_RPC_API_KEY } }
+      : this.config.rpcUrl;
+
     const client = await SigningStargateClient.connectWithSigner(
-      this.config.rpcUrl,
+      rpcEndpoint,
       cosmjsWallet,
       { registry }
     );
@@ -164,7 +168,9 @@ export class TransactionService {
     let feeAmount = "2000000"; // Default 0.02 RUNE
     
     try {
-      const networkResponse = await fetch(`${this.config.apiUrl}/thorchain/network`);
+      const apiHeaders: Record<string, string> = {};
+      if (process.env.THORNODE_API_KEY) apiHeaders['X-API-KEY'] = process.env.THORNODE_API_KEY;
+      const networkResponse = await fetch(`${this.config.apiUrl}/thorchain/network`, { headers: apiHeaders });
       if (networkResponse.ok) {
         const networkInfo = await networkResponse.json() as { native_tx_fee_rune?: string };
         if (networkInfo.native_tx_fee_rune) {
@@ -226,7 +232,7 @@ export class TransactionService {
         try {
           const freshWallet = await this.walletService.createCosmJSWallet();
           const freshClient = await SigningStargateClient.connectWithSigner(
-            this.config.rpcUrl,
+            rpcEndpoint,
             freshWallet,
             { registry }
           );
@@ -264,7 +270,9 @@ export class TransactionService {
       console.log('⛽ [TransactionService] Fetching THORChain network info for native tx fee...');
       
       // Fetch THORChain network info to get native transaction fee
-      const response = await fetch(`${this.config.apiUrl}/thorchain/network`);
+      const apiHeaders: Record<string, string> = {};
+      if (process.env.THORNODE_API_KEY) apiHeaders['X-API-KEY'] = process.env.THORNODE_API_KEY;
+      const response = await fetch(`${this.config.apiUrl}/thorchain/network`, { headers: apiHeaders });
       if (!response.ok) {
         throw new Error(`Network info request failed: ${response.status}`);
       }
