@@ -89,10 +89,26 @@ export class MemolessApiApplication {
       allowedHeaders: ['Content-Type', 'Authorization']
     }));
 
+    // Behind a reverse proxy every request arrives from the proxy's address, so without this the
+    // limiter below counts every client in ONE bucket. TRUST_PROXY names the proxies whose
+    // X-Forwarded-For is believed (e.g. "loopback" for a proxy on the same host, or a hop count);
+    // req.ip is then the address the proxy saw, which the client cannot forge. Unset: Express's
+    // default, req.ip is the TCP peer.
+    const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
+    if (trustProxy !== undefined) this.app.set('trust proxy', trustProxy);
+
+    // Callers exempt from the limiter, by req.ip: e.g. a backend on the same host calling this API
+    // directly (RATE_LIMIT_EXEMPT_IPS=127.0.0.1,::1), whose requests would otherwise share the
+    // public budget. Requests that come through the proxy carry the client's address, not these.
+    const exemptIps = new Set(
+      (process.env.RATE_LIMIT_EXEMPT_IPS || '').split(',').map(ip => ip.trim()).filter(Boolean)
+    );
+
     // Rate limiting
     const limiter = rateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
       max: parseInt(process.env.RATE_LIMIT || '100'), // limit each IP to 100 requests per windowMs
+      skip: req => exemptIps.size > 0 && exemptIps.has((req.ip || '').replace(/^::ffff:/, '')),
       message: {
         error: {
           code: 'RATE_LIMITED',
@@ -246,6 +262,8 @@ export class MemolessApiApplication {
   async start(): Promise<any> {
     try {
       const port = parseInt(process.env.PORT || '3000');
+      // Unset: every interface. Behind a proxy on the same host, 127.0.0.1.
+      const host = process.env.HOST || undefined;
       
       // Create HTTP server
       this.server = createServer(this.app);
@@ -253,7 +271,7 @@ export class MemolessApiApplication {
       
       // Start HTTP server
       await new Promise<void>((resolve, reject) => {
-        this.server.listen(port, (error?: Error) => {
+        this.server.listen(port, host, (error?: Error) => {
           if (error) {
             reject(error);
           } else {
@@ -324,3 +342,12 @@ process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
   process.exit(1);
 });
+
+/** TRUST_PROXY as Express's `trust proxy` setting: "true"/"false", a hop count, or address names. */
+function parseTrustProxy(value: string | undefined): boolean | number | string | undefined {
+  const v = value?.trim();
+  if (!v) return undefined;
+  if (v === 'true' || v === 'false') return v === 'true';
+  if (/^\d+$/.test(v)) return Number(v);
+  return v;
+}
